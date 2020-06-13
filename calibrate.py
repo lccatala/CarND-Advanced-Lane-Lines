@@ -126,9 +126,9 @@ def find_lines(img, left, right, nwindows=9, margin=100, minpix=20):
     win_xright_low = current_right - margin
     win_xright_high = current_right + margin
 
-    # TEMP Draw the windows on the visualization image
-    cv2.rectangle(out_img,(win_xleft_low,win_y_low), (win_xleft_high,win_y_high),(0,255,0), 2) 
-    cv2.rectangle(out_img,(win_xright_low,win_y_low), (win_xright_high,win_y_high),(0,255,0), 2) 
+    # TEMP
+    left_rects.append([(win_xleft_low, win_y_low), (win_xleft_high, win_y_high)])
+    right_rects.append([(win_xright_low, win_y_low), (win_xright_high, win_y_high)])
 
     # TODO: this step doesn't add any pixels
     # Identify the nonzero pixels in x and y within the window
@@ -162,7 +162,7 @@ def find_lines(img, left, right, nwindows=9, margin=100, minpix=20):
   right_x = nonzero_x[right_lane_inds]
   right_y = nonzero_y[right_lane_inds]
 
-  return left_x, left_y, right_x, right_y, out_img
+  return left_rects, right_rects, left_x, left_y, right_x, right_y
 
 def find_ends(img):
   hist = np.sum(img[img.shape[0]//2:,:], axis=0)
@@ -208,11 +208,16 @@ if __name__ == '__main__':
   ploty = np.linspace(0, blurred[0].shape[0]-1, blurred[0].shape[0])
   left, right = find_ends(blurred)
 
-  left_x, left_y, right_x, right_y, out_img = find_lines(blurred, left, right)
+  left_rects, right_rects, left_x, left_y, right_x, right_y = find_lines(blurred, left, right)
 
   lines_image = (np.dstack((blurred, blurred, blurred)) * 255).astype(np.uint8).copy()
 
-  plt.imshow(out_img)
+  # Draw windows on image
+  for left_rect, right_rect in zip(left_rects, right_rects):
+    cv2.rectangle(lines_image, left_rect[0], left_rect[1], (0, 255, 255), 4)
+    cv2.rectangle(lines_image, right_rect[0], right_rect[1], (0, 255, 255), 4)
+
+  plt.imshow(lines_image)
   plt.show()
   # plt.imshow(lines_image)
   # plt.show()
