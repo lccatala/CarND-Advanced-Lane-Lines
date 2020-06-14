@@ -5,7 +5,8 @@ import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 
 def gaussian_blur(img, kernel_size=3):
-  return cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
+  blurred = cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
+  return blurred
 
 def warp_perspective(img, src_points, dst_points):
   src_points = np.float32(src_points)
@@ -99,8 +100,6 @@ def sobel_threshold_ls(img, sobel_size=3, threshold=[0,255]):
   return binary_output
 
 def find_lines(img, left, right, nwindows=9, margin=100, minpix=20):
-  out_img = np.dstack((img, img, img))
-
   window_height = np.int(img.shape[0] / nwindows)
 
   nonzero = img.nonzero()
@@ -118,8 +117,10 @@ def find_lines(img, left, right, nwindows=9, margin=100, minpix=20):
 
   for window in range(nwindows):
     # Identify window boundaries in x and y (and right and left)
-    win_y_low = img.shape[0] - (window-1)*window_height
+    win_y_low = img.shape[0] - (window+1)*window_height
+    print(win_y_low)
     win_y_high = img.shape[0] - window*window_height
+    print(win_y_high)
 
     win_xleft_low = current_left - margin
     win_xleft_high = current_left + margin
@@ -131,11 +132,14 @@ def find_lines(img, left, right, nwindows=9, margin=100, minpix=20):
     right_rects.append([(win_xright_low, win_y_low), (win_xright_high, win_y_high)])
 
     # TODO: this step doesn't add any pixels
+    # for y in nonzero_y:
+    #   if (y < win_y_high):
+    #     print(win_y_low, ' < ',y, ' < ', win_y_high)
     # Identify the nonzero pixels in x and y within the window
     good_left_inds = ((nonzero_y >= win_y_low) & (nonzero_y < win_y_high) & 
-    (nonzero_x >= win_xleft_low) & (nonzero_x < win_xleft_high)).nonzero()[0]
+    (nonzero_x >= win_xleft_low) &  (nonzero_x < win_xleft_high)).nonzero()[0]
     good_right_inds = ((nonzero_y >= win_y_low) & (nonzero_y < win_y_high) & 
-    (nonzero_x >= win_xright_low) & (nonzero_x < win_xright_high)).nonzero()[0]
+    (nonzero_x >= win_xright_low) &  (nonzero_x < win_xright_high)).nonzero()[0]
 
     # Append these indices to the lists
     left_lane_inds.append(good_left_inds)
@@ -199,8 +203,7 @@ if __name__ == '__main__':
   sobel_binary = sobel_threshold_ls(warped_image, 5, [50, 255])
 
   th_image = np.zeros_like(white_binary)
-  color_binary_mask = white_binary | yellow_binary | sobel_binary
-  th_image[color_binary_mask == 1] = 1
+  th_image[(white_binary == 1) | (yellow_binary == 1) | (sobel_binary == 1)] = 1
 
   blurred = gaussian_blur(th_image, 25) # Blurring for reducing noise
 
@@ -214,6 +217,7 @@ if __name__ == '__main__':
 
   # Draw windows on image
   for left_rect, right_rect in zip(left_rects, right_rects):
+    #print(left_rect)
     cv2.rectangle(lines_image, left_rect[0], left_rect[1], (0, 255, 255), 4)
     cv2.rectangle(lines_image, right_rect[0], right_rect[1], (0, 255, 255), 4)
 
