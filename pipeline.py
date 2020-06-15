@@ -112,7 +112,7 @@ def sobel_threshold_ls(img, sobel_size=3, threshold=[0,255]):
   binary_output[(sobel_s_x == 1) | (sobel_l_x == 1)] = 1
   return binary_output
 
-def find_lines(img, left, right, nwindows=9, margin=100, minpix=100):
+def find_lines(img, left, right, nwindows=9, margin=100, minpix=50):
   window_height = np.int(img.shape[0] / nwindows)
 
   nonzero = img.nonzero()
@@ -221,8 +221,6 @@ def process_image(img):
 
   left_rects, right_rects, left_x, left_y, right_x, right_y = find_lines(blurred, left, right)
 
-  left_line = Line()
-  right_line = Line()
 
   if left_x.size:
     left_fit = np.polyfit(left_y, left_x, 2)
@@ -280,7 +278,7 @@ def process_image(img):
   dewarped_lines = cv2.warpPerspective(lines_image, np.linalg.inv(M), (blurred.shape[1], blurred.shape[0]))
 
   output = cv2.addWeighted(undist, 1, dewarped_poly, 0.3, 0)
-  output = cv2.addWeighted(output, 1, dewarped_lines, 0.3, 0.3)
+  output = cv2.addWeighted(output, 1, dewarped_lines, 0.6, 0.5)
 
   cv2.putText(output, distance_message, (30, 60), cv2.FONT_HERSHEY_COMPLEX, 2, (255, 255, 255), 3)
   cv2.putText(output, curvature_message, (30, 120), cv2.FONT_HERSHEY_COMPLEX, 2, (255, 255, 255), 3)
@@ -295,6 +293,9 @@ if __name__ == '__main__':
   print('Calibrating camera...')
   ret, mtx, dist, rvecs, tvecs = calibrate_camera()
   print('Camera calibration done!')
+
+  left_line = Line()
+  right_line = Line()
 
   output_filename = 'project_video_lines.mp4'
   input_clip = VideoFileClip('project_video.mp4')

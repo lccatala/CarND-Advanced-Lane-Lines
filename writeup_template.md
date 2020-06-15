@@ -118,7 +118,7 @@ We identified each lane-line's pixels with the sliding-windows method. We starte
 We can see this process represented here, where the sliding windows are represented by clear blue squares.
 ![alt text][sliding_windows_img]
 
-Then we used those pixel positions to fit a quadratic polynomial to each line (lines 228 and 235).
+Then we used those pixel positions to fit a quadratic polynomial to each line (lines 226 and 233).
 
 ![alt text][separated_lines_img]
 
@@ -126,7 +126,7 @@ It's important to note that our pipeline will keep the line from the previous fr
 
 #### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-The radius of curvature is computed in lines 247 through 249, making use of function `measure_curvature_radius()` (lines 183 through 192).
+The radius of curvature is computed in lines 245 through 247, making use of function `measure_curvature_radius()` (lines 183 through 192).
 
 We convert the lines from pixel space to real-world space (meters) and then calculate the radious of the curve using the expression `curvature = (1 + (2 A*y*y_mpp + B^2)^1.5) / |2A|`, where `y_mpp` is a constant defining the ammount of meters per pixel in the `y` axis. We calculate each lane's curvature separately and then average them to get an approximation to the real lane's curvature.
 
@@ -134,7 +134,7 @@ To calculate the deviation of the vehicle from the lane center, we first find th
 
 #### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-We implemented this step in lines 268 through 283 in my code in `pipeline.py` . We also plotted the left and right lane pixels in red and blue respectively. For the final image to look like a regular camera image we undid the perspective transformation. This was achieved with OpenCV's `warpPerspective()` and the inverse transformation matrix `M` we got when calibrating the camera.
+We implemented this step in lines 266 through 281 in my code in `pipeline.py` . We also plotted the left and right lane pixels in red and blue respectively. For the final image to look like a regular camera image we undid the perspective transformation. This was achieved with OpenCV's `warpPerspective()` and the inverse transformation matrix `M` we got when calibrating the camera.
 
 Here is an example of my result on a test image:
 
@@ -159,3 +159,4 @@ The hardest part of the project was finding an adequate thresholding system that
 While this assignment was designed to be as simple as possible, it has some obvious shortcommings. In order to make it perform correctly in more challenging images, our pipeline should be enhanced. Here are some ways to do this:
 - Fully convolutional networks for lane detection
 - Line tracking through multiple frames to make them more stable.
+- A way to filter out reflections in other cars, since these can be captured by our thresholds and are especially tricky to deal with
