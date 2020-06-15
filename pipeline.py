@@ -51,7 +51,6 @@ def calibrate_camera():
     if ret:
       imgpoints.append(corners)
       objpoints.append(objp)
-      img = cv2.drawChessboardCorners(img, (nx, ny), corners, ret)
 
   return cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
@@ -248,8 +247,6 @@ def process_image(img):
   left_line.radius_of_curvature, right_line.radius_of_curvature = measure_curvature_radius(ploty, left_line.bestx, right_line.bestx)
   curvature = (left_line.radius_of_curvature + right_line.radius_of_curvature) / 2
   curvature = np.round(curvature, 2)
-  #print(curvature,'m')
-  #print(left_line.radius_of_curvature, 'm', right_line.radius_of_curvature, 'm')
 
   # Find deviation from center
   left_end = left_line.current_fit[0] * warped_image.shape[0] ** 2 + left_line.current_fit[1] * warped_image.shape[1] + left_line.current_fit[2]
@@ -290,14 +287,16 @@ def process_image(img):
 
   return output
 
+#######################
+##### ENTRY POINT #####
+#######################
+
 if __name__ == '__main__':
   print('Calibrating camera...')
   ret, mtx, dist, rvecs, tvecs = calibrate_camera()
   print('Camera calibration done!')
 
-  r = process_image(mpimg.imread('test_images/test1.jpg'))
-
-  # output_filename = 'project_video_lines.mp4'
-  # input_clip = VideoFileClip('project_video.mp4')
-  # output_clip = input_clip.fl_image(process_image)
-  # output_clip.write_videofile(output_filename, audio=False)
+  output_filename = 'project_video_lines.mp4'
+  input_clip = VideoFileClip('project_video.mp4')
+  output_clip = input_clip.fl_image(process_image)
+  output_clip.write_videofile(output_filename, audio=False)
