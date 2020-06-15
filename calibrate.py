@@ -4,6 +4,19 @@ import numpy as np
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 
+class Line():
+  def __init__ (self):
+    self.detected = False
+    self.recent_xfitted = []
+    self.bestx = None
+    self.best_fit = None
+    self.current_fit = [np.array([False])]
+    self.radius_of_curvature = None
+    self.line_base_pos = None
+    self.diffs = np.array([0, 0, 0], dtype='float')
+    self.allx = None
+    self.ally = None
+
 def gaussian_blur(img, kernel_size=3):
   blurred = cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
   return blurred
@@ -99,7 +112,7 @@ def sobel_threshold_ls(img, sobel_size=3, threshold=[0,255]):
   binary_output[(sobel_s_x == 1) | (sobel_l_x == 1)] = 1
   return binary_output
 
-def find_lines(img, left, right, nwindows=9, margin=100, minpix=20):
+def find_lines(img, left, right, nwindows=9, margin=100, minpix=100):
   window_height = np.int(img.shape[0] / nwindows)
 
   nonzero = img.nonzero()
@@ -118,9 +131,7 @@ def find_lines(img, left, right, nwindows=9, margin=100, minpix=20):
   for window in range(nwindows):
     # Identify window boundaries in x and y (and right and left)
     win_y_low = img.shape[0] - (window+1)*window_height
-    print(win_y_low)
     win_y_high = img.shape[0] - window*window_height
-    print(win_y_high)
 
     win_xleft_low = current_left - margin
     win_xleft_high = current_left + margin
@@ -131,10 +142,6 @@ def find_lines(img, left, right, nwindows=9, margin=100, minpix=20):
     left_rects.append([(win_xleft_low, win_y_low), (win_xleft_high, win_y_high)])
     right_rects.append([(win_xright_low, win_y_low), (win_xright_high, win_y_high)])
 
-    # TODO: this step doesn't add any pixels
-    # for y in nonzero_y:
-    #   if (y < win_y_high):
-    #     print(win_y_low, ' < ',y, ' < ', win_y_high)
     # Identify the nonzero pixels in x and y within the window
     good_left_inds = ((nonzero_y >= win_y_low) & (nonzero_y < win_y_high) & 
     (nonzero_x >= win_xleft_low) &  (nonzero_x < win_xleft_high)).nonzero()[0]
@@ -147,13 +154,9 @@ def find_lines(img, left, right, nwindows=9, margin=100, minpix=20):
 
     # If we found > minpix pixels, recenter next window
     # (`right` or `leftx_current`) on their mean position
-    #print('good_left_inds:',good_left_inds)
-    #print('good_right_inds:',good_right_inds)
     if len(good_left_inds) > minpix:
-      #print('a')
       current_left = np.int(np.mean(nonzero_x[good_left_inds]))
     if len(good_right_inds) > minpix:
-      #print('b')
       current_right = np.int(np.mean(nonzero_x[good_right_inds]))
 
   # Concatenate the arrays of indices (previously was a list of lists of pixels)
@@ -177,6 +180,22 @@ def find_ends(img):
 
   return left, right
 
+def measure_curvature_radius(ploty, leftx, rightx, y_mpp=30/720, x_mpp=3.7/700):
+  y_eval = np.max(ploty)
+
+  left_fit_cr = np.polyfit(ploty*y_mpp, leftx*x_mpp, 2)
+  right_fit_cr = np.polyfit(ploty*y_mpp, rightx*x_mpp, 2)
+
+  left_curverad = ((1 + (2*left_fit_cr[0]*y_eval*y_mpp + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
+  right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*y_mpp + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
+
+  return left_curverad, right_curverad
+
+
+###########################
+####### ENTRY POINT #######
+###########################
+
 if __name__ == '__main__':
   print('Calibrating camera...')
   ret, mtx, dist, rvecs, tvecs = calibrate_camera()
@@ -193,7 +212,7 @@ if __name__ == '__main__':
                 [980, 720]] # Bottom right
 
   # img = mpimg.imread('test_images/test6.jpg')
-  img = mpimg.imread('test_images/test5.jpg')
+  img = mpimg.imread('test_images/test1.jpg')
   undist = cv2.undistort(img, mtx, dist, None, mtx)
   warped_image, M = warp_perspective(undist, src_points, dst_points)
 
@@ -208,20 +227,56 @@ if __name__ == '__main__':
   blurred = gaussian_blur(th_image, 25) # Blurring for reducing noise
 
   # Lane detection
-  ploty = np.linspace(0, blurred[0].shape[0]-1, blurred[0].shape[0])
+  ploty = np.linspace(0, warped_image[0].shape[0]-1, warped_image[0].shape[0])
   left, right = find_ends(blurred)
 
   left_rects, right_rects, left_x, left_y, right_x, right_y = find_lines(blurred, left, right)
 
-  lines_image = (np.dstack((blurred, blurred, blurred)) * 255).astype(np.uint8).copy()
+  left_line = Line()
+  right_line = Line()
 
-  # Draw windows on image
-  for left_rect, right_rect in zip(left_rects, right_rects):
-    #print(left_rect)
-    cv2.rectangle(lines_image, left_rect[0], left_rect[1], (0, 255, 255), 4)
-    cv2.rectangle(lines_image, right_rect[0], right_rect[1], (0, 255, 255), 4)
+  if left_x.size:
+    left_fit = np.polyfit(left_y, left_x, 2)
+    left_line.bestx = left_fit[0] * ploty ** 2 + left_fit[1] * ploty + left_fit[2]
+    left_line.current_fit = left_fit
+    left_line.allx = left_x
+    left_line.ally = left_y
+
+  if right_x.size:
+    right_fit = np.polyfit(right_y, right_x, 2)
+    right_line.bestx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
+    right_line.current_fit = right_fit
+    right_line.allx = right_x
+    right_line.ally = right_y
+
+  # Draw pixels of each line in a different color
+  lines_image = (np.dstack((blurred, blurred, blurred)) * 255).astype(np.uint8).copy()
+  lines_image[left_line.ally, left_line.allx] = [255,0,0]
+  lines_image[right_line.ally, right_line.allx] = [0,0,255]
 
   plt.imshow(lines_image)
   plt.show()
-  # plt.imshow(lines_image)
-  # plt.show()
+
+  # Curvature
+  left_line.radius_of_curvature, right_line.radius_of_curvature = measure_curvature_radius(ploty, left_line.bestx, right_line.bestx)
+  avg_curvature = (left_line.radius_of_curvature + right_line.radius_of_curvature) / 2
+  #print(avg_curvature,'m')
+  #print(left_line.radius_of_curvature, 'm', right_line.radius_of_curvature, 'm')
+
+  # Find deviation from center
+  left_end = left_line.current_fit[0] * warped_image.shape[0] ** 2 + left_line.current_fit[1] * warped_image.shape[1] + left_line.current_fit[2]
+  right_end = right_line.current_fit[0] * warped_image.shape[0] ** 2 + right_line.current_fit[1] * warped_image.shape[1] + right_line.current_fit[2]
+
+  center = (left_end + right_end) / 2
+  distance_to_center = (center - warped_image.shape[1] / 2) / 2
+  distance_to_center = np.round(distance_to_center, 2)
+
+  deviation_message = 'Vehicle is ' + str(np.absolute(distance_to_center)) + 'cm '
+  if distance_to_center > 0:
+    deviation_message += 'right of center'
+  else:
+    deviation_message += 'left of center'
+
+  print(deviation_message)
+
+  # TODO: Reproject data onto original image
